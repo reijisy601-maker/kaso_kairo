@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>仮想回路 (Virtual Circuit) | Official Website</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700;900&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      /* 基本的なスクロールバーのスタイル */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1A1A1A;
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #0066FF;
+        border-radius: 4px;
+        border: 2px solid #1A1A1A;
+      }
+      /* カスタムアニメーション用 */
+      .fade-in-up {
+        animation: fade-in-up 0.8s ease-out forwards;
+        opacity: 0;
+      }
+      .glitch:hover .glitch-text {
+        animation: text-glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        darkMode: 'class', // prefers-color-scheme に基づくダークモードを有効化
+        theme: {
+          extend: {
+            colors: {
+              'electric-blue': '#0066FF',
+              'neon-green': '#00FF66',
+              'deep-purple': '#6B2DD9',
+              'true-black': '#000000',
+              'dark-gray': '#1A1A1A',
+              'off-white': '#E8E8E8',
+              'cyber-yellow': '#FFD700',
+              'hot-pink': '#FF0080',
+            },
+            fontFamily: {
+              display: ['"Space Grotesk"', 'sans-serif'],
+              body: ['"IBM Plex Mono"', 'monospace'],
+              jp: ['"Noto Sans JP"', 'sans-serif'],
+            },
+            boxShadow: {
+              'glow-blue': '0 0 20px rgba(0, 102, 255, 0.6)',
+              'glow-green': '0 0 15px rgba(0, 255, 102, 0.5)',
+            },
+            animation: {
+              'circuit-flow': 'circuit-flow 6s linear infinite',
+              'text-glitch': 'text-glitch 0.4s linear infinite alternate',
+              'fade-in-up': 'fade-in-up 0.8s ease-out forwards',
+              'binary-fall': 'binary-fall 15s linear infinite',
+            },
+            keyframes: {
+              'circuit-flow': {
+                'from': { strokeDashoffset: '1000' },
+                'to': { strokeDashoffset: '0' },
+              },
+              'text-glitch': {
+                '0%': { transform: 'translate(0)' },
+                '20%': { transform: 'translate(-2px, 2px)' },
+                '40%': { transform: 'translate(-2px, -2px)' },
+                '60%': { transform: 'translate(2px, 2px)' },
+                '80%': { transform: 'translate(2px, -2px)' },
+                '100%': { transform: 'translate(0)' },
+              },
+              'fade-in-up': {
+                '0%': { opacity: '0', transform: 'translateY(30px) scale(0.98)' },
+                '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+              },
+              'binary-fall': {
+                'from': { transform: 'translateY(-100%)' },
+                'to': { transform: 'translateY(100%)' },
+              },
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+  }
+}
+</script>
+</head>
+  <body class="bg-true-black text-off-white font-jp">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
