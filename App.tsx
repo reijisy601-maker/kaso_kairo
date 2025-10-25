@@ -15,13 +15,6 @@ interface Edge {
   from: number;
   to: number;
 }
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-}
 interface TechStackItem {
   icon: React.ReactNode;
   name: string;
@@ -44,112 +37,163 @@ const edges: Edge[] = [
   { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 4 },
   { from: 4, to: 5 }, { from: 5, to: 6 }, { from: 6, to: 1 },
 ];
-
 const techStackData: TechStackItem[] = [
     { icon: <ReactIcon />, name: "Frontend", description: "React, Next.js, TypeScript, Tailwind CSS" },
     { icon: <CodeIcon />, name: "Backend", description: "Node.js, Express, NestJS, Python" },
     { icon: <PenToolIcon />, name: "Design & UI", description: "Figma, Canvas API, WebGL, Framer Motion" },
 ];
+const interactiveNodeIds = techNodes.filter(n => n.id !== 0).map(n => n.id);
 
 // --- Canvas Circuit Component ---
 const CircuitCanvas: React.FC<{ onNodeClick: (node: Node) => void }> = ({ onNodeClick }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
+    const [hoveredNodeId, setHoveredNodeId] = useState<number | null>(null);
+    const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
 
-    const draw = useCallback((ctx: CanvasRenderingContext2D, nodes: Node[], mousePos: {x: number, y: number}) => {
+    const handleNodeInteraction = useCallback((nodeId: number | null) => {
+        if (nodeId !== null) {
+            const node = techNodes.find(n => n.id === nodeId);
+            if (node) onNodeClick(node);
+        }
+    }, [onNodeClick]);
+    
+    // Event listeners setup
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const getPointerPosition = (e: MouseEvent | TouchEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = 'touches' in e ? e.touches[0] : e;
+            return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+        };
+
+        const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+            const pos = getPointerPosition(e);
+            const { width, height } = canvas.getBoundingClientRect();
+            const center = { x: width / 2, y: height / 2 };
+            
+            let currentlyHovered: Node | null = null;
+            for (const node of techNodes) {
+                const dist = Math.hypot(pos.x - (center.x + node.x), pos.y - (center.y + node.y));
+                if (dist < node.radius) {
+                    currentlyHovered = node;
+                    break;
+                }
+            }
+            setHoveredNodeId(currentlyHovered ? currentlyHovered.id : null);
+        };
+        
+        const handlePointerUp = () => handleNodeInteraction(hoveredNodeId);
+        
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleNodeInteraction(focusedNodeId);
+            } else if (e.key.startsWith('Arrow')) {
+                e.preventDefault();
+                const currentIndex = interactiveNodeIds.indexOf(focusedNodeId ?? -1);
+                let nextIndex;
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    nextIndex = currentIndex >= interactiveNodeIds.length - 1 ? 0 : currentIndex + 1;
+                } else { // ArrowLeft or ArrowUp
+                    nextIndex = currentIndex <= 0 ? interactiveNodeIds.length - 1 : currentIndex - 1;
+                }
+                setFocusedNodeId(interactiveNodeIds[nextIndex]);
+            }
+        };
+        
+        const handleFocus = () => {
+            if (focusedNodeId === null) setFocusedNodeId(interactiveNodeIds[0]);
+        };
+        const handleBlur = () => setFocusedNodeId(null);
+
+        canvas.addEventListener('mousemove', handlePointerMove);
+        canvas.addEventListener('touchmove', handlePointerMove, { passive: true });
+        canvas.addEventListener('click', handlePointerUp);
+        canvas.addEventListener('touchend', handlePointerUp);
+        canvas.addEventListener('keydown', handleKeyDown);
+        canvas.addEventListener('focus', handleFocus);
+        canvas.addEventListener('blur', handleBlur);
+
+        return () => {
+            canvas.removeEventListener('mousemove', handlePointerMove);
+            canvas.removeEventListener('touchmove', handlePointerMove);
+            canvas.removeEventListener('click', handlePointerUp);
+            canvas.removeEventListener('touchend', handlePointerUp);
+            canvas.removeEventListener('keydown', handleKeyDown);
+            canvas.removeEventListener('focus', handleFocus);
+            canvas.removeEventListener('blur', handleBlur);
+        };
+    }, [hoveredNodeId, focusedNodeId, handleNodeInteraction]);
+
+    // Drawing effect
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+
         const dpr = window.devicePixelRatio || 1;
-        const rect = ctx.canvas.getBoundingClientRect();
-        ctx.canvas.width = rect.width * dpr;
-        ctx.canvas.height = rect.height * dpr;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
         const center = { x: rect.width / 2, y: rect.height / 2 };
 
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Draw Edges
         ctx.strokeStyle = '#1A1A1A';
         ctx.lineWidth = 1;
         edges.forEach(edge => {
-            const fromNode = nodes.find(n => n.id === edge.from)!;
-            const toNode = nodes.find(n => n.id === edge.to)!;
+            const fromNode = techNodes.find(n => n.id === edge.from);
+            const toNode = techNodes.find(n => n.id === edge.to);
+            if (!fromNode || !toNode) return;
             ctx.beginPath();
             ctx.moveTo(center.x + fromNode.x, center.y + fromNode.y);
             ctx.lineTo(center.x + toNode.x, center.y + toNode.y);
             ctx.stroke();
         });
         
-        // Find hovered node
-        let currentHovered: Node | null = null;
-        nodes.forEach(node => {
-            const dist = Math.hypot(mousePos.x - (center.x + node.x), mousePos.y - (center.y + node.y));
-            if (dist < node.radius) {
-                currentHovered = node;
-            }
-        });
-        setHoveredNode(currentHovered);
-        
         // Draw Nodes
-        nodes.forEach(node => {
-            const isHovered = hoveredNode?.id === node.id;
+        techNodes.forEach(node => {
+            const isHovered = node.id === hoveredNodeId;
+            const isFocused = node.id === focusedNodeId;
+
             ctx.beginPath();
             ctx.arc(center.x + node.x, center.y + node.y, node.radius, 0, 2 * Math.PI);
             ctx.fillStyle = isHovered ? '#0066FF' : '#0A0A0A';
-            ctx.strokeStyle = isHovered ? '#0066FF' : '#1A1A1A';
-            ctx.lineWidth = isHovered ? 2 : 1;
-            if(isHovered) {
+            ctx.strokeStyle = isHovered || isFocused ? '#0066FF' : '#1A1A1A';
+            ctx.lineWidth = isHovered || isFocused ? 2 : 1;
+            
+            if (isHovered) {
               ctx.shadowColor = 'rgba(0, 102, 255, 0.7)';
               ctx.shadowBlur = 15;
+            } else {
+              ctx.shadowBlur = 0;
             }
+            
             ctx.fill();
             ctx.stroke();
-            ctx.shadowBlur = 0;
 
-            ctx.fillStyle = isHovered ? '#FFFFFF' : '#999999';
+            // Draw focus ring
+            if (isFocused && !isHovered) {
+                ctx.strokeStyle = '#0066FF';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(center.x + node.x, center.y + node.y, node.radius + 4, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = (isHovered || isFocused) ? '#FFFFFF' : '#999999';
             ctx.font = `${node.id === 0 ? '16' : '12'}px "JetBrains Mono"`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(node.label, center.x + node.x, center.y + node.y);
         });
-    }, [hoveredNode]);
+    }, [hoveredNodeId, focusedNodeId]);
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        let mousePos = { x: -1000, y: -1000 };
-
-        const handleMouseMove = (e: MouseEvent) => {
-            const rect = canvas.getBoundingClientRect();
-            mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        };
-        const handleClick = () => {
-          if(hoveredNode) onNodeClick(hoveredNode);
-        }
-
-        const resizeCanvas = () => draw(ctx, techNodes, mousePos);
-        
-        let animationFrameId: number;
-        const render = () => {
-            draw(ctx, techNodes, mousePos);
-            animationFrameId = window.requestAnimationFrame(render);
-        };
-        render();
-
-        window.addEventListener('resize', resizeCanvas);
-        canvas.addEventListener('mousemove', handleMouseMove);
-        canvas.addEventListener('click', handleClick);
-
-        return () => {
-            window.cancelAnimationFrame(animationFrameId);
-            window.removeEventListener('resize', resizeCanvas);
-            canvas.removeEventListener('mousemove', handleMouseMove);
-            canvas.removeEventListener('click', handleClick);
-        };
-    }, [draw, hoveredNode, onNodeClick]);
-
-    return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />;
+    return <canvas ref={canvasRef} tabIndex={0} className="absolute top-0 left-0 w-full h-full cursor-pointer focus:outline-none" />;
 };
 
 // --- Hero Component ---
